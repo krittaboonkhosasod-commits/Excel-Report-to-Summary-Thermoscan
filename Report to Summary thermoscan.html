@@ -106,7 +106,7 @@ main{padding-top:50px}
 </div></div></section>
 <section class="hc" id="c2" hidden><div class="fold"><div class="tab">ตรวจสอบข้อมูล Summary</div><div class="panel">
 <div class="chips" id="chips" style="margin:0 4px 12px"></div>
-<div class="tw"><table id="sum"><thead><tr><th>No.</th><th>Floor</th><th>Location</th><th>Devices</th><th>Detail</th><th>Level of Correction</th><th>Page</th></tr></thead><tbody id="tb"></tbody></table></div>
+<div class="tw"><table id="sum"><thead><tr><th>No.</th><th>Floor</th><th>Location</th><th>Devices or Panel</th><th>Detail</th><th>Level of Correction</th><th>Page</th></tr></thead><tbody id="tb"></tbody></table></div>
 <label class="l">หัวรายงาน</label><input type="text" id="ttl" value="Infrared Thermography Report for GPO">
 <label class="l" style="margin-top:14px">ท้ายกระดาษ (ขึ้นบรรทัดใหม่ได้)</label><textarea id="ftr" rows="3" style="resize:vertical;min-height:80px"></textarea>
 <p style="color:var(--mu);font-size:13px;margin:12px 4px 0">ข้อมูลที่กรอกจะถูกจำไว้ในเบราว์เซอร์ ใช้ต่อได้ครั้งหน้า</p>
@@ -171,7 +171,7 @@ async function buildSummary(JSZipC,items,title,footer,logoB64){
   const merges=['A1:H1','A3:J3'];
   let rows=RW(1,'').replace('<row r="1" spans="1:10">','<row r="1" spans="1:10" ht="60" customHeight="1">').replace('</row>',cs('A',1,1,title)+'BCDEFGH'.split('').map(c=>cs(c,1,1,'')).join('')+'IJ'.split('').map(c=>cs(c,1,2,'')).join('')+'</row>');
   rows+=`<row r="2" spans="1:10"/>`+RW(3,cs('A',3,3,'SUMMARY INFRARED THERMOGRAPHY REPORT')+'BCDEFGHIJ'.split('').map(c=>cs(c,3,3,'')).join(''))+`<row r="4" spans="1:10"/>`;
-  const HD=[['A','A','No.'],['B','B','Floor'],['C','D','Location'],['E','F','Devices'],['G','H','Detail'],['I','I','Level of Correction'],['J','J','Page']];
+  const HD=[['A','A','No.'],['B','B','Floor'],['C','D','Location'],['E','F','Devices or Panel'],['G','H','Detail'],['I','I','Level of Correction'],['J','J','Page']];
   const hv={};HD.forEach(([a,b,t])=>{hv[a]=t;merges.push(`${a}5:${b}6`)});
   rows+=RW(5,GC.split('').map(c=>cs(c,5,4,hv[c]||'')).join(''))+RW(6,blank(6,4));
   for(let p=0;p<pages;p++){
