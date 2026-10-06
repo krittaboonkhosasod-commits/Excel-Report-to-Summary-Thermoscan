@@ -136,11 +136,12 @@ async function readSheet(zip){
     else if(v){if(t==='s')val=ss[+v[1]];else if(t==='str'||t==='e')val=unesc(v[1]);else if(t==='b')val=v[1]==='1';else{const n=parseFloat(v[1]);val=isNaN(n)?v[1]:n}}
     if(val===null||val==='')continue;
     (rows[+r[2]]=rows[+r[2]]||{})[r[1]]=val}
-  const fm=/<oddFooter>([\s\S]*?)<\/oddFooter>/.exec(await zip.file(path).async('string'));
-  return{rows,footer:fm?unesc(fm[1]):''}}
-const numOf=v=>typeof v==='number'?v:(typeof v==='string'&&/^\s*-?\d+(\.\d+)?\s*$/.test(v)?parseFloat(v):null);
+  const fm=/<oddFooter>([\s\S]*?)<\/oddFooter>/.exec(xml);
+  return{rows,footer:fm?unesc(fm[1]).replace(/^(&[LCR])?(&\d+)?(&"[^"]*")?/,'').replace(/&&/g,'&').trim():''}}
+const numOf=v=>typeof v==='number'?v:(typeof v==='string'&&/^\s*-?\d+(\.\d+)?/.test(v)?parseFloat(v):null);
 const R10=d=>Math.round(d*1e10)/1e10;
 const lvP=d=>{d=R10(d);return d<4?1:d<16?2:4},lvA=d=>{d=R10(d);return d<11?1:d<21?2:d<41?3:4};
+const locOf=l=>{l=String(l||'');const i=l.indexOf('/');return(i>0?l.slice(i+1):l).trim()};
 const floorOf=l=>{const i=String(l||'').indexOf('/');return i>0?l.slice(0,i).trim():'-'};
 async function parseReport(zip){
   const{rows,footer}=await readSheet(zip),nums=Object.keys(rows).map(Number).sort((a,b)=>a-b);
@@ -150,7 +151,7 @@ async function parseReport(zip){
   tt.forEach((st,i)=>{
     const en=i+1<tt.length?tt[i+1]:Infinity,n=+/(\d+)/.exec(rows[st].A)[1];
     let loc='',dev='',det='',amb=null;const P={};
-    for(const r of nums){if(r<=st||r>=en)continue;const o=rows[r];
+    for(let q=nums.indexOf(st)+1;q<nums.length&&nums[q]<en;q++){const r=nums[q],o=rows[r];
       if(/^Location \(Floor\/Room\)/i.test(String(o.A||''))){const d=rows[r+1]||{};loc=String(d.A??'');dev=String(d.D??'');det=String(d.H??'')}
       const b=String(o.B??'').trim();
       if(/^Ambient Temp/i.test(b))amb=numOf(o.F);else if(/^P[123]$/.test(b))P[b]=numOf(o.F)}
@@ -159,10 +160,10 @@ async function parseReport(zip){
     [['P1','P2'],['P2','P3'],['P3','P1']].forEach(([a,b])=>{if(P[a]!=null&&P[b]!=null)lv.push(lvP(Math.abs(P[a]-P[b])))});
     ks.forEach(a=>{if(P[a]!=null&&amb!=null)lv.push(lvA(Math.abs(P[a]-amb)))});
     if(!loc&&!dev)blank.push(n);
-    out.push({n,floor:floorOf(loc),loc:loc||'-',dev:dev||'-',det:det||'-',level:lv.length?Math.max(...lv):'',page:''})});
+    out.push({n,floor:floorOf(loc),loc:locOf(loc)||'-',dev:dev||'-',det:det||'-',level:lv.length?Math.max(...lv):'',page:''})});
   return{title,items:out,blank,footer}}
 const PERPAGE=41,GC='ABCDEFGHIJ';
-const footerCode=t=>{t=String(t||'').replace(/\r/g,'').trim();if(!t)return'';t=t.replace(/^(&[LCR])?(&\d+)?/,'').replace(/&/g,'&&');return'&L&9'+(/^\d/.test(t)?' ':'')+t.slice(0,220)};
+const footerCode=t=>{t=String(t||'').replace(/\r/g,'').trim();if(!t)return'';t=t.replace(/^(&[LCR])?(&\d+)?/,'').trim().slice(0,200).replace(/&/g,'&&');return t?'&L&9'+(/^\d/.test(t)?' ':'')+t:''};
 async function buildSummary(JSZipC,items,title,footer,logoB64){
   const z=new JSZipC(),cs=(c,r,st,v)=>v===''||v==null?`<c r="${c}${r}" s="${st}"/>`:typeof v==='number'?`<c r="${c}${r}" s="${st}"><v>${v}</v></c>`:`<c r="${c}${r}" s="${st}" t="inlineStr"><is><t xml:space="preserve">${esc(v)}</t></is></c>`;
   const pages=Math.max(1,Math.ceil(items.length/PERPAGE)),lastLine=48+(pages-1)*42;
@@ -180,7 +181,7 @@ async function buildSummary(JSZipC,items,title,footer,logoB64){
       rows+=RW(r,cs('A',r,5,t?t.n:'')+cs('B',r,5,t?(String(t.floor).trim()||'-'):'')+cs('C',r,6,t?(String(t.loc).trim()||'-'):'')+cs('D',r,6,'')+cs('E',r,6,t?(String(t.dev).trim()||'-'):'')+cs('F',r,6,'')+cs('G',r,6,t?(String(t.det).trim()||'-'):'')+cs('H',r,6,'')+cs('I',r,5,t?t.level:'')+cs('J',r,5,pg));
       merges.push(`C${r}:D${r}`,`E${r}:F${r}`,`G${r}:H${r}`)}
     const lr=48+p*42;rows+=RW(lr,blank(lr,7))}
-  const brks=Array.from({length:pages-1},(_,p)=>`<brk id="${48+p*42}" max="16838" man="1"/>`).join('');
+  const brks=Array.from({length:pages-1},(_,p)=>`<brk id="${48+p*42}" max="16383" man="1"/>`).join('');
   const lv=[[1,'FF00FF00'],[2,'FF00B0F0'],[3,'FFFFFF00'],[4,'FFFF0000']];
   const sheet=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheetPr><pageSetUpPr fitToPage="1"/></sheetPr><dimension ref="A1:J${lastLine}"/><sheetViews><sheetView workbookViewId="0"/></sheetViews><sheetFormatPr defaultRowHeight="15"/><cols><col min="6" max="6" width="3.6" customWidth="1"/></cols><sheetData>${rows}</sheetData><mergeCells count="${merges.length}">${merges.map(m=>`<mergeCell ref="${m}"/>`).join('')}</mergeCells><conditionalFormatting sqref="I7:I${lastLine-1}">${lv.map(([n],i)=>`<cfRule type="cellIs" dxfId="${i}" priority="${i+1}" operator="equal"><formula>${n}</formula></cfRule>`).join('')}</conditionalFormatting><pageMargins left="0.7" right="0.47" top="0.35" bottom="0.6" header="0.3" footer="0.3"/><pageSetup paperSize="9" orientation="portrait" fitToWidth="1" fitToHeight="0"/><headerFooter><oddFooter>${esc(footerCode(footer))}</oddFooter></headerFooter>${pages>1?`<rowBreaks count="${pages-1}" manualBreakCount="${pages-1}">${brks}</rowBreaks>`:''}<drawing r:id="rId1"/></worksheet>`;
@@ -222,7 +223,10 @@ function render(){
 async function load(file){
   $('c2').hidden=$('bar').hidden=true;logm('กำลังอ่านไฟล์…');
   try{
-    const zip=await JSZip.loadAsync(file),r=await parseReport(zip);
+    if(typeof JSZip==='undefined')throw new Error('โหลดไลบรารี JSZip ไม่สำเร็จ — ต้องต่อเน็ตตอนเปิดหน้านี้ครั้งแรก แล้วรีเฟรชหน้า');
+    if(!/\.xlsx$/i.test(file.name))throw new Error('รองรับเฉพาะไฟล์ .xlsx');
+    let zip;try{zip=await JSZip.loadAsync(file)}catch(_){throw new Error('เปิดไฟล์ไม่ได้ — ไฟล์อาจเสียหรือไม่ใช่ .xlsx')}
+    const r=await parseReport(zip);
     if(!r.items.length)throw new Error('ไม่พบข้อมูลอุปกรณ์ในไฟล์นี้');
     items=r.items;footer=r.footer||'';docName=file.name.replace(/\.xlsx$/i,'').replace(/[_ -]*Report$/i,'')||'Report';
     if(r.title&&lsGet('thermify_title')==null)$('ttl').value=r.title;if(r.footer&&lsGet('thermify_footer')==null)$('ftr').value=r.footer;render();$('c2').hidden=$('bar').hidden=false;
@@ -235,11 +239,11 @@ const dz=$('drop');['dragenter','dragover'].forEach(v=>dz.addEventListener(v,e=>
 ['dragleave','drop'].forEach(v=>dz.addEventListener(v,e=>{e.preventDefault();dz.classList.remove('on')}));
 dz.addEventListener('drop',e=>{const f=e.dataTransfer.files[0];if(f){const d=new DataTransfer();d.items.add(f);$('f').files=d.files;$('f').dispatchEvent(new Event('change'))}});
 $('tb').addEventListener('input',e=>{const i=e.target.dataset.i;if(i==null)return;const t=items[+i],k=e.target.dataset.k;
-  if(k==='loc'){const was=floorOf(t.loc);t.loc=e.target.value;if(t.floor===was){t.floor=floorOf(t.loc);const fi=e.target.closest('tr').querySelector('[data-k=floor]');if(fi)fi.value=t.floor}}
-  else t[k]=e.target.value});
+  t[k]=e.target.value});
 $('go').onclick=async()=>{
   $('go').disabled=true;$('gt').textContent='กำลังสร้าง…';
   try{
+    if(typeof JSZip==='undefined')throw new Error('ยังไม่ได้โหลด JSZip — ต่อเน็ตแล้วรีเฟรชหน้า');
     const blob=await buildSummary(JSZip,items,$('ttl').value.trim()||'Infrared Thermography Report',$('ftr').value,LOGO),a=document.createElement('a');
     a.href=URL.createObjectURL(blob);a.download=docName+'_Summary.xlsx';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),60000);
     logm('<span class="ok">✓ สร้างไฟล์ Summary เสร็จแล้ว — ไฟล์ถูกดาวน์โหลดอัตโนมัติ</span>');
